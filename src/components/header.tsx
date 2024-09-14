@@ -1,11 +1,8 @@
-"use client"
-import { useSession } from "next-auth/react"
-import { signInUser, signOutUser } from "@/actions/userActions"
+import { auth } from "@/auth"
+import { serverSignIn, serverSignOut } from "@/actions/authActions"
 
-export default function Header() {
-  const { data: session, status } = useSession()
-
-  if (status === "loading") return <div>Loading...</div>
+export default async function Header() {
+  const session = await auth()
 
   return (
     <nav>
@@ -13,9 +10,13 @@ export default function Header() {
       <div>Welcome {session?.user?.name}</div>
       <div>
         {session ? (
-          <button onClick={() => signOutUser()}>Sign Out</button>
+          <form action={serverSignOut}>
+          <button type="submit">Sign Out</button>
+        </form>
         ) : (
-          <button onClick={() => signInUser()}>Sign In</button>
+            <form action={serverSignIn}>
+            <button type="submit">Sign In</button>
+          </form>
         )}
       </div>
     </nav>
