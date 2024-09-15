@@ -51,8 +51,7 @@ export default function SpotifyAIRecommender() {
   const [isLoading, setIsLoading] = useState(false)
   const [focusedTrackId, setFocusedTrackId] = useState<string | null>(null)
   const [apiLimited, setApiLimited] = useState(false)
-  const [score, setScore] = useState(0)
-
+  const [Choicesummary, setChoicesummary] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
@@ -86,7 +85,9 @@ export default function SpotifyAIRecommender() {
       const currentTrack = tracks[currentTrackIndex]
       if (currentTrack.preview_url) {
         audio.src = currentTrack.preview_url
-        audio.play().catch(error => {
+        audio.play().then(() => {
+          setError(null) // Set error to null if audio is working fine
+        }).catch(error => {
           console.error("Playback failed", error)
           setError("Playback failed. This track may not be available for preview.")
         })
@@ -138,6 +139,7 @@ export default function SpotifyAIRecommender() {
       const data = await response.json()
       if (response.ok && data.tracks && data.tracks.length > 0) {
         setTracks(data.tracks)
+        setChoicesummary(data.Choicesummary)  
         if (scrollAreaRef.current) {
           scrollAreaRef.current.scrollTop = 0
         }
@@ -184,7 +186,6 @@ export default function SpotifyAIRecommender() {
         track.id === trackId ? { ...track, rating } : track
       )
     )
-    setScore(prevScore => prevScore + rating)
   }
 
   return (
@@ -217,6 +218,8 @@ export default function SpotifyAIRecommender() {
             </Button>
           </div>
         </form>
+
+        {Choicesummary && (<div className="text-white text-sm">{Choicesummary}</div>)}
 
         <ScrollArea className="flex-1" ref={scrollAreaRef}>
           {error && (
@@ -375,11 +378,6 @@ export default function SpotifyAIRecommender() {
           </div>
         </div>
       )}
-
-      {/* Score Display */}
-      <div className="fixed top-4 right-4 bg-[#1DB954] text-black px-3 py-1 rounded-full font-semibold">
-        Score: {score}
-      </div>
     </div>
   )
 }
