@@ -20,34 +20,29 @@ export async function POST(req: Request, res: Response) {
         query = 'I want to listen to some music be unique and different based on current music trends and think of some good search query'
     }
     try {
-        const prompt = `You are a music expert with a strong understanding of how Spotify's search algorithm works. Given the user query "${query}", generate a search query for Spotify. Provide the output as plain text in the following format:
+        const prompt = `You are a music expert specializing in Spotify searches. Given the user query "${query}", extract the most relevant information for a Spotify search. Provide the output as:
 
                         searchQuery||market
 
-                        Where:
-                        - searchQuery is your generated Spotify search query
-                        - market is an ISO 3166-1 alpha-2 country code
+                        Guidelines for searchQuery:
+                        1. Extract 2-3 key terms from the query, even if it's lengthy.
+                        2. Use Spotify's search syntax and available filters: album, artist, track, year, upc, tag:hipster, tag:new, isrc, and genre.
+                        3. Apply filters based on the search context:
+                        - artist, year: For albums, artists, and tracks (year can be single or range, e.g., 1955-1960)
+                        - album: For albums and tracks
+                        - genre: For artists and tracks
+                        - isrc, track: For tracks only
+                        - upc, tag:new, tag:hipster: For albums only (tag:new for albums from last two weeks, tag:hipster for lowest 10% popularity)
+                        4. Format: term1+term2+field:filter
+                        5. URL encode special characters
 
-                        Guidelines for constructing the searchQuery:
-                        1. Use field filters to narrow down the search. Available filters: album, artist, track, year, upc, tag:hipster, tag:new, isrc, and genre.
-                        2. Field filter usage:
-                        - artist, year: For albums, artists, and tracks. Year can be single or range (e.g., 1955-1960).
-                        - album: For albums and tracks.
-                        - genre: For artists and tracks.
-                        - isrc, track: For tracks only.
-                        - upc, tag:new, tag:hipster: For albums only. tag:new returns albums from the last two weeks, tag:hipster returns albums in the lowest 10% popularity.
+                        For market, use a relevant ISO 3166-1 alpha-2 country code.
 
-                        3. Format: search+terms+field:filter
-
-                        For the market field:
-                        - Use an ISO 3166-1 alpha-2 country code.
-                        - This determines content availability in the specified market.
-                        - If omitted, content may be considered unavailable.
-
-                        Example output:
+                        Example outputs:
                         remaster%20track:Doxy%20artist:Miles%20Davis||US
+                        genre:rock%20year:1970-1979||GB
 
-                        Ensure your response is in the format searchQuery||market without any additional text or explanation.`;
+                        Provide only the searchQuery||market format without any extra text.`;
 
         const questions = await generateQuestions({ prompt });
         console.log("questions :: ", questions);

@@ -6,12 +6,8 @@ declare module "next-auth" {
     user: {
       accessToken?: string
       refreshToken?: string
-      accessTokenExpires?: number
+      expires_at?: number
     } & DefaultSession["user"]
-  }
-  interface Account {
-    refreshToken?: string
-    expires_at?: number
   }
 }
 const scopes = [
@@ -19,29 +15,46 @@ const scopes = [
     "playlist-read-private",
     "playlist-read-collaborative",
     "user-read-currently-playing",
-    "user-modify-playback-state"
+    "user-modify-playback-state",
+    "user-read-playback-state",
+    "user-read-playback-position",
+    "user-top-read",
+    "user-read-recently-played",
+    "user-read-playback-position",
+    "user-read-playback-state",
+    "user-read-playback-position",
+    "user-read-playback-state", 
 ].join(",")
 
 const params = {
     scope: scopes
 }
+let refreshToken : string = ""
+let accessToken : string  = ""
+let accessTokenExpires : number = 0
+
 async function refreshAccessToken(token: any) {
-    const params = new URLSearchParams()
-    params.append("grant_type", "refresh_token")
-    params.append("refresh_token", token.refreshToken)
+    const paramsX = new URLSearchParams()
+    paramsX.append("grant_type", "refresh_token")
+    if(refreshToken==="") paramsX.append("refresh_token", token.refreshToken)
+    else paramsX.append("refresh_token", refreshToken)
+    
     const response = await fetch("https://accounts.spotify.com/api/token", {
         method: "POST",
         headers: {
             'Authorization': 'Basic ' + (Buffer.from(process.env.AUTH_SPOTIFY_ID + ':' + process.env.AUTH_SPOTIFY_SECRET).toString('base64'))
         },
-        body: params
+        body: paramsX
     })
     const data = await response.json()
+    refreshToken = data.refresh_token ?? refreshToken
+    accessToken = data.access_token ?? accessToken
+    accessTokenExpires = Date.now() + (data.expires_in * 1000)
     return {
         ...token,
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token ?? token.refreshToken,
-        accessTokenExpires: Date.now() + data.expires_in * 1000
+        accessToken: accessToken ?? token.accessToken,
+        refreshToken: refreshToken ?? token.refreshToken,
+        accessTokenExpires: accessTokenExpires
     }
 }
  
@@ -54,27 +67,37 @@ export const { handlers, signIn, signOut, auth  } = NextAuth({
   })],
   callbacks: {
     async jwt({ token, user, account }) {
-      if (user) { // User is available during sign-in
-        token.id = user.id
-      }
       if (account) { // Account is available during sign-in
         token.accessToken = account.access_token as string
         token.refreshToken = account.refresh_token as string
-        token.accessTokenExpires = (account.expires_at as number ?? 0)
+        token.accessTokenExpires = (Date.now() + ((account.expires_in as number) * 1000)) as number
+        refreshToken = token.refreshToken as string
+        accessToken = token.accessToken as string
+        accessTokenExpires = token.accessTokenExpires as number
       }
-      if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number) * 1000) {
-            return token
-        }
 
-        // access token has expired
-        return await refreshAccessToken(token)
-    },
-    session({ session, token }) {
-      if (token.accessToken && typeof token.accessToken === 'string') {
-        session.user.accessToken = token.accessToken
-        session.user.refreshToken = token.refreshToken as string
-        session.user.accessTokenExpires = token.accessTokenExpires as number
+      if(token.accessTokenExpires && typeof token.accessTokenExpires === 'number' && Date.now() > token.accessTokenExpires) {
+        token = await refreshAccessToken(token)
       }
+
+      return token
+    },
+    async session({ session, token }) {
+
+      if(accessTokenExpires === 0) {
+        accessTokenExpires = token.accessTokenExpires as number
+        refreshToken = token.refreshToken as string
+        accessToken = token.accessToken as string
+      }
+
+      if(accessTokenExpires && Date.now() > accessTokenExpires) {
+        token = await refreshAccessToken(token)
+      }
+
+
+      session.user.accessToken = accessToken as string
+      session.user.refreshToken = refreshToken as string
+      session.user.expires_at = accessTokenExpires
       return session
     },
   },

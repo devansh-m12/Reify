@@ -12,7 +12,7 @@ export async function generateQuestions({prompt}: {prompt: string}) {
 
     return text;
   } catch (error) {
-    console.error('Error in generateQuestions:', error);
-    throw new Error('Failed to generate questions');
+    console.error('Error in Response via Gemini:', error);
+    throw new Error('Failed to generate response via Gemini');
   }
 }
