@@ -90,9 +90,9 @@ export const { handlers, signIn, signOut, auth  } = NextAuth({
         accessToken = token.accessToken as string
       }
 
-      if(accessTokenExpires && Date.now() > accessTokenExpires) {
-        token = await refreshAccessToken(token)
-      }
+      // if(accessTokenExpires && Date.now() > accessTokenExpires) {
+        await refreshAccessToken(token)
+      // }
 
 
       session.user.accessToken = accessToken as string
