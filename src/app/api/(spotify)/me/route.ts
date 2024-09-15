@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import axios, { AxiosError } from "axios";
 
 export async function GET(req: Request, res: Response) {
     const session = await auth()
@@ -11,23 +12,26 @@ export async function GET(req: Request, res: Response) {
     }
 
    try{
-    const response = await fetch("https://api.spotify.com/v1/me", {
-        headers: {
-            Authorization: `Bearer ${session?.user?.accessToken}`
-        }
-    })
-
-    const data = await response.json()
-    return Response.json({
-        success: true,
-        data    
-    }, { status: 200 })
+        const response = await axios.get("https://api.spotify.com/v1/me", {
+            headers: {
+                Authorization: `Bearer ${session?.user?.accessToken}`
+            }
+        })
+        const data = await response.data
+        return Response.json({
+            success: true,
+            data    
+        }, { status: 200 })
    } catch (error) {
-    console.log("Error fetching user data", error)
-    return Response.json({
-        success: false,
-        message: "Error fetching user data"
-    }, { status: 500 })
+        if(error instanceof AxiosError) {
+            console.log("Error fetching user data", error)
+
+            return Response.json({
+                    success: false,
+                    message: "Error fetching user data",
+                    displayMessage: error.response?.data
+            }, { status: 500 })
+        }
    }
     
 
