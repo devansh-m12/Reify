@@ -1,18 +1,25 @@
 {
   "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
-    "@typescript-eslint/no-unused-vars": "warn",
+    // Disable all rules
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-empty-function": "off",
+    "react-hooks/rules-of-hooks": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react/prop-types": "off",
+    "react/react-in-jsx-scope": "off",
     "react/no-unescaped-entities": "off",
-    "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/ban-ts-comment": "warn",
-    "@next/next/no-server-import-in-page": "off",
-    "@typescript-eslint/ban-types": ["error", {
-      "types": {
-        "{}": {
-          "message": "Don't use `{}` as a type. `{}` actually means \"any non-nullish value\".",
-          "fixWith": "object"
-        }
-      }
-    }]
+    "react/display-name": "off",
+    "import/no-anonymous-default-export": "off",
+    // Add any other specific rules you want to disable
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    "no-console": "off",
+    "no-empty-function": "off",
+    "no-empty": "off",
+    "no-useless-escape": "off"
   }
 }

@@ -57,7 +57,7 @@ export default async function Header() {
   )
 }
 
-function NavItem({ icon, text }: { icon: React.ReactNode; text: string }) {
+function NavItem({ icon, text, onClick }: { icon: React.ReactNode; text: string; onClick: () => void }) {
   return (
     <a href="#" className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors duration-300 group">
       <span className="transform group-hover:scale-110 transition-transform duration-300">{icon}</span>
