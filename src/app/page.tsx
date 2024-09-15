@@ -1,101 +1,385 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
+import { Play, Pause, SkipBack, SkipForward, Volume2, Send, Loader2, Star, Sparkles, Music, Zap, Book, Dumbbell, AlertTriangle } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Slider } from "@/components/ui/slider"
+import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { motion, AnimatePresence } from "framer-motion"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+interface Artist {
+  name: string
+}
+
+interface Album {
+  name: string
+  images: { url: string }[]
+}
+
+interface Track {
+  id: string
+  name: string
+  artists: Artist[]
+  album: Album
+  preview_url: string | null
+  duration_ms: number
+  rating?: number
+}
+
+const exampleInputs = [
+  { icon: <Sparkles className="w-4 h-4" />, text: "I'm feeling nostalgic and want to listen to some 80s pop hits" },
+  { icon: <Music className="w-4 h-4" />, text: "Recommend me some upbeat indie rock for a road trip" },
+  { icon: <Book className="w-4 h-4" />, text: "I need focus music for studying, preferably instrumental" },
+  { icon: <Zap className="w-4 h-4" />, text: "What are some good jazz tracks for a relaxing evening?" },
+  { icon: <Dumbbell className="w-4 h-4" />, text: "Suggest some energetic workout music to keep me motivated" }
+]
+
+export default function SpotifyAIRecommender() {
+  const [query, setQuery] = useState('')
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [volume, setVolume] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
+  const [focusedTrackId, setFocusedTrackId] = useState<string | null>(null)
+  const [apiLimited, setApiLimited] = useState(false)
+  const [score, setScore] = useState(0)
+
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    audioRef.current = new Audio()
+    setAudio(audioRef.current)
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tracks.length > 0) {
+      handleAudioChange()
+    }
+  }, [currentTrackIndex, tracks])
+
+  useEffect(() => {
+    if (audio) {
+      audio.volume = volume
+    }
+  }, [volume, audio])
+
+  const handleAudioChange = () => {
+    if (audio) {
+      audio.pause()
+      const currentTrack = tracks[currentTrackIndex]
+      if (currentTrack.preview_url) {
+        audio.src = currentTrack.preview_url
+        audio.play().catch(error => {
+          console.error("Playback failed", error)
+          setError("Playback failed. This track may not be available for preview.")
+        })
+        setIsPlaying(true)
+        audio.addEventListener('timeupdate', updateProgress)
+        audio.addEventListener('ended', handleTrackEnd)
+      } else {
+        setError("Preview not available for this track.")
+        setIsPlaying(false)
+      }
+    }
+  }
+
+  const updateProgress = () => {
+    if (audio) {
+      setCurrentTime(audio.currentTime)
+    }
+  }
+
+  const handleTrackEnd = () => {
+    if (currentTrackIndex < tracks.length - 1) {
+      setCurrentTrackIndex(currentTrackIndex + 1)
+    } else {
+      setIsPlaying(false)
+    }
+  }
+
+  const fetchTracks = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setTracks([])
+    setCurrentTrackIndex(0)
+    setIsPlaying(false)
+    setIsLoading(true)
+    setApiLimited(false)
+    if (audio) {
+      audio.pause()
+      audio.src = ''
+    }
+
+    try {
+      const response = await fetch('/api/suggest-songs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( query ),
+      })
+      const data = await response.json()
+      if (response.ok && data.tracks && data.tracks.length > 0) {
+        setTracks(data.tracks)
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = 0
+        }
+      } else if (response.status === 429) {
+        setApiLimited(true)
+      } else {
+        setError(data.message || 'An error occurred')
+      }
+    } catch (error) {
+      setError('Failed to fetch tracks')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const togglePlayPause = () => {
+    if (audio) {
+      if (isPlaying) {
+        audio.pause()
+      } else {
+        const currentTrack = tracks[currentTrackIndex]
+        if (currentTrack.preview_url) {
+          audio.play().catch(error => {
+            console.error("Playback failed", error)
+            setError("Playback failed. This track may not be available for preview.")
+          })
+        } else {
+          setError("Preview not available for this track.")
+        }
+      }
+      setIsPlaying(!isPlaying)
+    }
+  }
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const handleRating = (trackId: string, rating: number) => {
+    setTracks(prevTracks => 
+      prevTracks.map(track => 
+        track.id === trackId ? { ...track, rating } : track
+      )
+    )
+    setScore(prevScore => prevScore + rating)
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="flex flex-col min-h-screen bg-[#121212] text-white">
+      <div className="flex-1 flex flex-col p-6 pb-24">
+        <form onSubmit={fetchTracks} className="mb-6">
+          <Textarea
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Describe the music you like or how you're feeling..."
+            className="w-full bg-[#1E1E1E] text-white border-[#333] resize-none mb-2"
+            rows={3}
+          />
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-400 flex flex-wrap gap-2">
+              {exampleInputs.map((input, index) => (
+                <button
+                  key={index}
+                  className="flex items-center gap-2 px-3 py-1 bg-[#1E1E1E] rounded-full hover:bg-[#333] transition-colors"
+                  onClick={() => setQuery(input.text)}
+                >
+                  {input.icon}
+                  <span className="hidden sm:inline">Example {index + 1}</span>
+                </button>
+              ))}
+            </div>
+            <Button type="submit" className="bg-[#1DB954] hover:bg-[#1ED760] text-black" disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              Get Recommendations
+            </Button>
+          </div>
+        </form>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+        <ScrollArea className="flex-1" ref={scrollAreaRef}>
+          {error && (
+            <Alert variant="destructive" className="mb-4 bg-[#E22134] text-white border-none">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {apiLimited && (
+            <Alert className="mb-4 bg-[#535353] text-white border-none">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>API Limit Reached</AlertTitle>
+              <AlertDescription>Please try again in a few seconds.</AlertDescription>
+            </Alert>
+          )}
+
+          {!isLoading && tracks.length === 0 && !error && !apiLimited && (
+            <Alert className="mb-4 bg-[#535353] text-white border-none">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>No Tracks Found</AlertTitle>
+              <AlertDescription>Try a different query or check back later.</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <AnimatePresence>
+              {tracks.map((track, index) => (
+                <motion.div
+                  key={`${track.id}-${index}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card 
+                    className={`bg-[#181818] hover:bg-[#282828] transition-all cursor-pointer ${
+                      focusedTrackId === track.id ? 'ring-2 ring-[#1DB954]' : ''
+                    }`}
+                    onClick={() => {
+                      setCurrentTrackIndex(index)
+                      setFocusedTrackId(track.id)
+                    }}
+                  >
+                    <CardContent className="p-3">
+                      <div className="relative w-full pt-[100%] mb-2">
+                        <Image
+                          src={track.album.images[0]?.url || '/placeholder.svg'}
+                          alt={`${track.name} album cover`}
+                          fill
+                          className="rounded-md object-cover"
+                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                        />
+                      </div>
+                      <h3 className="font-semibold text-sm truncate">{track.name}</h3>
+                      <p className="text-xs text-gray-400 truncate">{track.artists.map(artist => artist.name).join(', ')}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center space-x-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <TooltipProvider key={star}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRating(track.id, star)
+                                    }}
+                                    className={`focus:outline-none ${star <= (track.rating || 0) ? 'text-[#1DB954]' : 'text-gray-600'}`}
+                                  >
+                                    <Star className="h-3 w-3" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Rate {star} star{star !== 1 ? 's' : ''}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                        {currentTrackIndex === index && isPlaying && (
+                          <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Now Playing Bar */}
+      {tracks.length > 0 && tracks[currentTrackIndex].preview_url && (
+        <div className="h-24 bg-[#181818] border-t border-[#282828] flex items-center px-4 fixed bottom-0 left-0 right-0">
+          <div className="flex items-center flex-1">
             <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src={tracks[currentTrackIndex].album.images[0]?.url || '/placeholder.svg'}
+              alt={`${tracks[currentTrackIndex].name} album cover`}
+              width={56}
+              height={56}
+              className="rounded-md mr-4"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <div>
+              <h4 className="font-semibold text-sm">{tracks[currentTrackIndex].name}</h4>
+              <p className="text-xs text-gray-400">{tracks[currentTrackIndex].artists.map(artist => artist.name).join(', ')}</p>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col items-center">
+            <div className="flex items-center mb-2">
+              <Button variant="ghost" size="icon" onClick={() => setCurrentTrackIndex(Math.max(0, currentTrackIndex - 1))}>
+                <SkipBack className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="mx-2" onClick={togglePlayPause}>
+                {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8" />}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setCurrentTrackIndex(Math.min(tracks.length - 1, currentTrackIndex + 1))}>
+                <SkipForward className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="w-full flex items-center text-xs">
+              <span className="w-10 text-right">{formatTime(currentTime)}</span>
+              <Slider
+                className="mx-2 flex-1"
+                value={[currentTime]}
+                max={tracks[currentTrackIndex].duration_ms / 1000}
+                step={1}
+                onValueChange={(value) => {
+                  if (audio) {
+                    audio.currentTime = value[0]
+                  }
+                }}
+              />
+              <span className="w-10">{formatTime(tracks[currentTrackIndex].duration_ms / 1000)}</span>
+            </div>
+          </div>
+          <div className="flex-1 flex justify-end items-center">
+            <Volume2 className="h-5 w-5 mr-2" />
+            <Slider
+              className="w-24"
+              value={[volume]}
+              max={1}
+              step={0.01}
+              onValueChange={(value) => setVolume(value[0])}
+            />
+          </div>
+          <div className="ml-4 relative">
+            <Image
+              src={tracks[currentTrackIndex].album.images[0]?.url || '/placeholder.svg'}
+              alt={`${tracks[currentTrackIndex].name} album cover`}
+              width={80}
+              height={80}
+              className="rounded-md absolute -top-10 right-0 shadow-lg"
+            />
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      {/* Score Display */}
+      <div className="fixed top-4 right-4 bg-[#1DB954] text-black px-3 py-1 rounded-full font-semibold">
+        Score: {score}
+      </div>
     </div>
-  );
+  )
 }

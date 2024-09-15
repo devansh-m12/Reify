@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { MusicIcon, SearchIcon, LibraryIcon, UserIcon } from "lucide-react"
 
+
 export default async function Header() {
   const session = await auth()
 
@@ -21,8 +22,12 @@ export default async function Header() {
         </div>
         
         <div className="hidden md:flex items-center space-x-6">
-          <NavItem icon={<SearchIcon />} text="Discover" />
-          <NavItem icon={<LibraryIcon />} text="Library" />
+          <NavItem icon={<SearchIcon />} text="Discover" onClick={() => {
+            window.location.href = "/testpages"
+          }}/>
+          {/* <NavItem icon={<LibraryIcon />} text="Library" onClick={() => {
+            router.push("/library")
+          }}/> */}
         </div>
         
         <div className="flex items-center space-x-4">

@@ -51,6 +51,7 @@ export default function SpotifyAIRecommender() {
   const [isLoading, setIsLoading] = useState(false)
   const [focusedTrackId, setFocusedTrackId] = useState<string | null>(null)
   const [apiLimited, setApiLimited] = useState(false)
+  const [score, setScore] = useState(0)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -183,17 +184,18 @@ export default function SpotifyAIRecommender() {
         track.id === trackId ? { ...track, rating } : track
       )
     )
+    setScore(prevScore => prevScore + rating)
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
+    <div className="flex flex-col min-h-screen bg-[#121212] text-white">
       <div className="flex-1 flex flex-col p-6 pb-24">
         <form onSubmit={fetchTracks} className="mb-6">
           <Textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Describe the music you like or how you're feeling..."
-            className="w-full bg-gray-800 text-white resize-none mb-2"
+            className="w-full bg-[#1E1E1E] text-white border-[#333] resize-none mb-2"
             rows={3}
           />
           <div className="flex justify-between items-center">
@@ -201,7 +203,7 @@ export default function SpotifyAIRecommender() {
               {exampleInputs.map((input, index) => (
                 <button
                   key={index}
-                  className="flex items-center gap-2 px-3 py-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1 bg-[#1E1E1E] rounded-full hover:bg-[#333] transition-colors"
                   onClick={() => setQuery(input.text)}
                 >
                   {input.icon}
@@ -209,7 +211,7 @@ export default function SpotifyAIRecommender() {
                 </button>
               ))}
             </div>
-            <Button type="submit" className="bg-green-500 hover:bg-green-600" disabled={isLoading}>
+            <Button type="submit" className="bg-[#1DB954] hover:bg-[#1ED760] text-black" disabled={isLoading}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
               Get Recommendations
             </Button>
@@ -218,7 +220,7 @@ export default function SpotifyAIRecommender() {
 
         <ScrollArea className="flex-1" ref={scrollAreaRef}>
           {error && (
-            <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive" className="mb-4 bg-[#E22134] text-white border-none">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
@@ -226,7 +228,7 @@ export default function SpotifyAIRecommender() {
           )}
 
           {apiLimited && (
-            <Alert className="mb-4">
+            <Alert className="mb-4 bg-[#535353] text-white border-none">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>API Limit Reached</AlertTitle>
               <AlertDescription>Please try again in a few seconds.</AlertDescription>
@@ -234,7 +236,7 @@ export default function SpotifyAIRecommender() {
           )}
 
           {!isLoading && tracks.length === 0 && !error && !apiLimited && (
-            <Alert className="mb-4">
+            <Alert className="mb-4 bg-[#535353] text-white border-none">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>No Tracks Found</AlertTitle>
               <AlertDescription>Try a different query or check back later.</AlertDescription>
@@ -252,8 +254,8 @@ export default function SpotifyAIRecommender() {
                   transition={{ duration: 0.3 }}
                 >
                   <Card 
-                    className={`bg-gray-800 hover:bg-gray-700 transition-all cursor-pointer ${
-                      focusedTrackId === track.id ? 'ring-2 ring-green-500' : ''
+                    className={`bg-[#181818] hover:bg-[#282828] transition-all cursor-pointer ${
+                      focusedTrackId === track.id ? 'ring-2 ring-[#1DB954]' : ''
                     }`}
                     onClick={() => {
                       setCurrentTrackIndex(index)
@@ -283,7 +285,7 @@ export default function SpotifyAIRecommender() {
                                       e.stopPropagation()
                                       handleRating(track.id, star)
                                     }}
-                                    className={`focus:outline-none ${star <= (track.rating || 0) ? 'text-yellow-400' : 'text-gray-400'}`}
+                                    className={`focus:outline-none ${star <= (track.rating || 0) ? 'text-[#1DB954]' : 'text-gray-600'}`}
                                   >
                                     <Star className="h-3 w-3" />
                                   </button>
@@ -296,7 +298,7 @@ export default function SpotifyAIRecommender() {
                           ))}
                         </div>
                         {currentTrackIndex === index && isPlaying && (
-                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
                         )}
                       </div>
                     </CardContent>
@@ -310,7 +312,7 @@ export default function SpotifyAIRecommender() {
 
       {/* Now Playing Bar */}
       {tracks.length > 0 && tracks[currentTrackIndex].preview_url && (
-        <div className="h-24 bg-gray-800 border-t border-gray-700 flex items-center px-4 fixed bottom-0 left-0 right-0">
+        <div className="h-24 bg-[#181818] border-t border-[#282828] flex items-center px-4 fixed bottom-0 left-0 right-0">
           <div className="flex items-center flex-1">
             <Image
               src={tracks[currentTrackIndex].album.images[0]?.url || '/placeholder.svg'}
@@ -362,17 +364,22 @@ export default function SpotifyAIRecommender() {
               onValueChange={(value) => setVolume(value[0])}
             />
           </div>
-          <div className="ml-4">
+          <div className="ml-4 relative">
             <Image
               src={tracks[currentTrackIndex].album.images[0]?.url || '/placeholder.svg'}
               alt={`${tracks[currentTrackIndex].name} album cover`}
               width={80}
               height={80}
-              className="rounded-md"
+              className="rounded-md absolute -top-10 right-0 shadow-lg"
             />
           </div>
         </div>
       )}
+
+      {/* Score Display */}
+      <div className="fixed top-4 right-4 bg-[#1DB954] text-black px-3 py-1 rounded-full font-semibold">
+        Score: {score}
+      </div>
     </div>
   )
 }
