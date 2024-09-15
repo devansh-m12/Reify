@@ -29,7 +29,9 @@ export interface IUser extends Document {
     spotifyId: string;
     email: string;
     preferences: {
-        
+        mood: string;
+        tempo: string;
+        genre: string;
     };
     genres: IGenre[];
     artists: IArtist[];
@@ -40,6 +42,9 @@ const UserSchema:Schema<IUser> = new Schema({
     spotifyId: { type: String, required: [true, "Spotify ID is required"] },
     email: { type: String, required: [true, "Email is required"], match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter a valid email"] },
     preferences: {
+        mood: { type: String, required: [true, "Mood is required"] },
+        tempo: { type: String, required: [true, "Tempo is required"] },
+        genre: { type: String, required: [true, "Genre is required"] },
     },
     genres: [GenreSchema],
     artists: [ArtistSchema],
