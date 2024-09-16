@@ -34,7 +34,7 @@ export async function POST(req: Request, res: Response) {
                         3. End with: "Here are the best results we found on Spotify according to your preference."
 
                         Example:
-                        remaster%20track:Doxy%20artist:Miles%20Davis||US||According to your search, we find you have great interest in Miles Davis and jazz remastered tracks. You might like other jazz legends such as John Coltrane or Thelonious Monk. Here are the best results we found on Spotify according to your preference.
+                        remaster%20track:Doxy%20artist:Miles%20Davis||US||According to your search, we find you have great interest in jazz remastered tracks. You might like other jazz legends such as John Coltrane or Thelonious Monk. Here are the best results we found on Spotify according to your preference.
 
                         Provide only the searchQuery||market||Choicesummary format without extra text.`;
 
