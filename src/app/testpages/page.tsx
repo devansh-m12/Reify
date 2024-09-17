@@ -1,383 +1,190 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
-import { Play, Pause, SkipBack, SkipForward, Volume2, Send, Loader2, Star, Sparkles, Music, Zap, Book, Dumbbell, AlertTriangle } from 'lucide-react'
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Slider } from "@/components/ui/slider"
-import { Textarea } from "@/components/ui/textarea"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from "framer-motion"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Music, Sparkles, Zap, Heart, ChevronRight } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-interface Artist {
-  name: string
-}
-
-interface Album {
-  name: string
-  images: { url: string }[]
-}
-
-interface Track {
-  id: string
-  name: string
-  artists: Artist[]
-  album: Album
-  preview_url: string | null
-  duration_ms: number
-  rating?: number
-}
-
-const exampleInputs = [
-  { icon: <Sparkles className="w-4 h-4" />, text: "I'm feeling nostalgic and want to listen to some 80s pop hits" },
-  { icon: <Music className="w-4 h-4" />, text: "Recommend me some upbeat indie rock for a road trip" },
-  { icon: <Book className="w-4 h-4" />, text: "I need focus music for studying, preferably instrumental" },
-  { icon: <Zap className="w-4 h-4" />, text: "What are some good jazz tracks for a relaxing evening?" },
-  { icon: <Dumbbell className="w-4 h-4" />, text: "Suggest some energetic workout music to keep me motivated" }
+const features = [
+  { icon: <Music className="w-6 h-6" />, title: "Describe Your Mood", description: "Tell us how you're feeling or what kind of music you're in the mood for." },
+  { icon: <Sparkles className="w-6 h-6" />, title: "AI Magic", description: "Our AI analyzes your input and finds the perfect tracks to match your vibe." },
+  { icon: <Zap className="w-6 h-6" />, title: "Instant Playlist", description: "Get a curated playlist of songs that fit your description in seconds." },
+  { icon: <Heart className="w-6 h-6" />, title: "Rate and Refine", description: "Rate the songs to help our AI learn your preferences for even better recommendations." },
 ]
 
-export default function SpotifyAIRecommender() {
-  const [query, setQuery] = useState('')
-  const [tracks, setTracks] = useState<Track[]>([])
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [volume, setVolume] = useState(1)
-  const [isLoading, setIsLoading] = useState(false)
-  const [focusedTrackId, setFocusedTrackId] = useState<string | null>(null)
-  const [apiLimited, setApiLimited] = useState(false)
-  const [Choicesummary, setChoicesummary] = useState<string | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+export default function Component() {
+  const [stars, setStars] = useState<{ x: number; y: number; size: number; opacity: number }[]>([])
 
   useEffect(() => {
-    audioRef.current = new Audio()
-    setAudio(audioRef.current)
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current.src = ''
-      }
+    const generateStars = () => {
+      const newStars = Array.from({ length: 100 }, () => ({
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 2 + 1,
+        opacity: Math.random() * 0.5 + 0.1
+      }))
+      setStars(newStars)
     }
+
+    generateStars()
+    const interval = setInterval(generateStars, 10000)
+
+    return () => clearInterval(interval)
   }, [])
 
-  useEffect(() => {
-    if (tracks.length > 0) {
-      handleAudioChange()
-    }
-  }, [currentTrackIndex, tracks])
-
-  useEffect(() => {
-    if (audio) {
-      audio.volume = volume
-    }
-  }, [volume, audio])
-
-  const handleAudioChange = () => {
-    if (audio) {
-      audio.pause()
-      const currentTrack = tracks[currentTrackIndex]
-      if (currentTrack.preview_url) {
-        audio.src = currentTrack.preview_url
-        audio.play().then(() => {
-          setError(null) // Set error to null if audio is working fine
-        }).catch(error => {
-          console.error("Playback failed", error)
-          setError("Playback failed. This track may not be available for preview.")
-        })
-        setIsPlaying(true)
-        audio.addEventListener('timeupdate', updateProgress)
-        audio.addEventListener('ended', handleTrackEnd)
-      } else {
-        setError("Preview not available for this track.")
-        setIsPlaying(false)
-      }
-    }
-  }
-
-  const updateProgress = () => {
-    if (audio) {
-      setCurrentTime(audio.currentTime)
-    }
-  }
-
-  const handleTrackEnd = () => {
-    if (currentTrackIndex < tracks.length - 1) {
-      setCurrentTrackIndex(currentTrackIndex + 1)
-    } else {
-      setIsPlaying(false)
-    }
-  }
-
-  const fetchTracks = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setTracks([])
-    setCurrentTrackIndex(0)
-    setIsPlaying(false)
-    setIsLoading(true)
-    setApiLimited(false)
-    if (audio) {
-      audio.pause()
-      audio.src = ''
-    }
-
-    try {
-      const response = await fetch('/api/suggest-songs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify( query ),
-      })
-      const data = await response.json()
-      if (response.ok && data.tracks && data.tracks.length > 0) {
-        setTracks(data.tracks)
-        setChoicesummary(data.Choicesummary)  
-        if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = 0
-        }
-      } else if (response.status === 429) {
-        setApiLimited(true)
-      } else {
-        setError(data.message || 'An error occurred')
-      }
-    } catch (error) {
-      setError('Failed to fetch tracks')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const togglePlayPause = () => {
-    if (audio) {
-      if (isPlaying) {
-        audio.pause()
-      } else {
-        const currentTrack = tracks[currentTrackIndex]
-        if (currentTrack.preview_url) {
-          audio.play().catch(error => {
-            console.error("Playback failed", error)
-            setError("Playback failed. This track may not be available for preview.")
-          })
-        } else {
-          setError("Preview not available for this track.")
-        }
-      }
-      setIsPlaying(!isPlaying)
-    }
-  }
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  const handleRating = (trackId: string, rating: number) => {
-    setTracks(prevTracks => 
-      prevTracks.map(track => 
-        track.id === trackId ? { ...track, rating } : track
-      )
-    )
-  }
-
   return (
-    <div className="flex flex-col min-h-screen bg-[#121212] text-white">
-      <div className="flex-1 flex flex-col p-6 pb-24">
-        <form onSubmit={fetchTracks} className="mb-6">
-          <Textarea
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Describe the music you like or how you're feeling..."
-            className="w-full bg-[#1E1E1E] text-white border-[#333] resize-none mb-2"
-            rows={3}
+    <div className="min-h-screen bg-gradient-to-b from-[#121212] to-[#191414] text-[#FFFFFF] relative overflow-hidden flex items-center justify-center p-4">
+      <AnimatePresence>
+        {stars.map((star, index) => (
+          <motion.div
+            key={index}
+            className="absolute bg-white rounded-full"
+            style={{
+              left: `${star.x}%`,
+              top: `${star.y}%`,
+              width: star.size,
+              height: star.size,
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: star.opacity }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2, ease: "easeInOut" }}
           />
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-400 flex flex-wrap gap-2">
-              {exampleInputs.map((input, index) => (
-                <button
-                  key={index}
-                  className="flex items-center gap-2 px-3 py-1 bg-[#1E1E1E] rounded-full hover:bg-[#333] transition-colors"
-                  onClick={() => setQuery(input.text)}
-                >
-                  {input.icon}
-                  <span className="hidden sm:inline">Example {index + 1}</span>
-                </button>
-              ))}
-            </div>
-            <Button type="submit" className="bg-[#1DB954] hover:bg-[#1ED760] text-black" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-              Get Recommendations
-            </Button>
-          </div>
-        </form>
-
-        {Choicesummary && (<div className="text-white text-sm">{Choicesummary}</div>)}
-
-        <ScrollArea className="flex-1" ref={scrollAreaRef}>
-          {error && (
-            <Alert variant="destructive" className="mb-4 bg-[#E22134] text-white border-none">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {apiLimited && (
-            <Alert className="mb-4 bg-[#535353] text-white border-none">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>API Limit Reached</AlertTitle>
-              <AlertDescription>Please try again in a few seconds.</AlertDescription>
-            </Alert>
-          )}
-
-          {!isLoading && tracks.length === 0 && !error && !apiLimited && (
-            <Alert className="mb-4 bg-[#535353] text-white border-none">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>No Tracks Found</AlertTitle>
-              <AlertDescription>Try a different query or check back later.</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <AnimatePresence>
-              {tracks.map((track, index) => (
-                <motion.div
-                  key={`${track.id}-${index}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card 
-                    className={`bg-[#181818] hover:bg-[#282828] transition-all cursor-pointer ${
-                      focusedTrackId === track.id ? 'ring-2 ring-[#1DB954]' : ''
-                    }`}
-                    onClick={() => {
-                      setCurrentTrackIndex(index)
-                      setFocusedTrackId(track.id)
-                    }}
+        ))}
+      </AnimatePresence>
+      
+      <Card className="w-full max-w-4xl bg-[#181818] bg-opacity-90 border-none shadow-lg relative z-10 backdrop-blur-sm">
+        <CardHeader>
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <CardTitle className="text-4xl sm:text-5xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-[#1DB954] to-[#1ED760]">
+              Spotify AI Recommender
+            </CardTitle>
+            <CardDescription className="text-lg sm:text-xl text-[#B3B3B3] text-center mt-2">
+              Discover your perfect playlist with the power of AI
+            </CardDescription>
+          </motion.div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="features" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-[#282828]">
+              <TabsTrigger value="features" className="data-[state=active]:bg-[#1DB954] data-[state=active]:text-[#121212]">Features</TabsTrigger>
+              <TabsTrigger value="how-it-works" className="data-[state=active]:bg-[#1DB954] data-[state=active]:text-[#121212]">How It Works</TabsTrigger>
+            </TabsList>
+            <TabsContent value="features">
+              <ScrollArea className="h-[300px] w-full rounded-md border border-[#282828] p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {features.map((feature, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="bg-[#282828] bg-opacity-50">
+                        <CardContent className="p-4 text-center">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <div className="flex justify-center text-[#1DB954] mb-2">{feature.icon}</div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{feature.title}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <h3 className="text-lg font-semibold mb-2 text-[#FFFFFF]">{feature.title}</h3>
+                          <p className="text-sm text-[#B3B3B3]">{feature.description}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="how-it-works">
+              <ScrollArea className="h-[300px] w-full rounded-md border border-[#282828] p-4">
+                <ol className="space-y-4 text-[#B3B3B3]">
+                  <motion.li
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
                   >
-                    <CardContent className="p-3">
-                      <div className="relative w-full pt-[100%] mb-2">
-                        <Image
-                          src={track.album.images[0]?.url || '/placeholder.svg'}
-                          alt={`${track.name} album cover`}
-                          fill
-                          className="rounded-md object-cover"
-                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                        />
-                      </div>
-                      <h3 className="font-semibold text-sm truncate">{track.name}</h3>
-                      <p className="text-xs text-gray-400 truncate">{track.artists.map(artist => artist.name).join(', ')}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center space-x-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <TooltipProvider key={star}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleRating(track.id, star)
-                                    }}
-                                    className={`focus:outline-none ${star <= (track.rating || 0) ? 'text-[#1DB954]' : 'text-gray-600'}`}
-                                  >
-                                    <Star className="h-3 w-3" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Rate {star} star{star !== 1 ? 's' : ''}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                        {currentTrackIndex === index && isPlaying && (
-                          <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse" />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        </ScrollArea>
-      </div>
+                    <strong className="text-[#FFFFFF]">1. Input Your Preferences:</strong> Start by describing your mood, favorite genres, or the type of music you're looking for.
+                  </motion.li>
+                  <motion.li
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <strong className="text-[#FFFFFF]">2. AI Analysis:</strong> Our advanced AI processes your input, understanding the nuances of your musical preferences.
+                  </motion.li>
+                  <motion.li
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <strong className="text-[#FFFFFF]">3. Playlist Generation:</strong> Based on the analysis, a curated playlist is created just for you.
+                  </motion.li>
+                  <motion.li
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <strong className="text-[#FFFFFF]">4. Listen and Rate:</strong> Enjoy your personalized playlist and rate songs to help refine future recommendations.
+                  </motion.li>
+                  <motion.li
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <strong className="text-[#FFFFFF]">5. Continuous Learning:</strong> Our AI learns from your ratings and listening habits to improve future suggestions.
+                  </motion.li>
+                </ol>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+          
+          <motion.div 
+            className="flex justify-center mt-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <Button className="bg-[#1DB954] hover:bg-[#1ED760] text-[#121212] font-semibold px-6 py-2 rounded-full text-lg transition-colors duration-200">
+              Get Started
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </motion.div>
+        </CardContent>
+      </Card>
 
-      {/* Now Playing Bar */}
-      {tracks.length > 0 && tracks[currentTrackIndex].preview_url && (
-        <div className="h-24 bg-[#181818] border-t border-[#282828] flex items-center px-4 fixed bottom-0 left-0 right-0">
-          <div className="flex items-center flex-1">
-            <Image
-              src={tracks[currentTrackIndex].album.images[0]?.url || '/placeholder.svg'}
-              alt={`${tracks[currentTrackIndex].name} album cover`}
-              width={56}
-              height={56}
-              className="rounded-md mr-4"
-            />
-            <div>
-              <h4 className="font-semibold text-sm">{tracks[currentTrackIndex].name}</h4>
-              <p className="text-xs text-gray-400">{tracks[currentTrackIndex].artists.map(artist => artist.name).join(', ')}</p>
-            </div>
-          </div>
-          <div className="flex-1 flex flex-col items-center">
-            <div className="flex items-center mb-2">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentTrackIndex(Math.max(0, currentTrackIndex - 1))}>
-                <SkipBack className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="mx-2" onClick={togglePlayPause}>
-                {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8" />}
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentTrackIndex(Math.min(tracks.length - 1, currentTrackIndex + 1))}>
-                <SkipForward className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="w-full flex items-center text-xs">
-              <span className="w-10 text-right">{formatTime(currentTime)}</span>
-              <Slider
-                className="mx-2 flex-1"
-                value={[currentTime]}
-                max={tracks[currentTrackIndex].duration_ms / 1000}
-                step={1}
-                onValueChange={(value) => {
-                  if (audio) {
-                    audio.currentTime = value[0]
-                  }
-                }}
-              />
-              <span className="w-10">{formatTime(tracks[currentTrackIndex].duration_ms / 1000)}</span>
-            </div>
-          </div>
-          <div className="flex-1 flex justify-end items-center">
-            <Volume2 className="h-5 w-5 mr-2" />
-            <Slider
-              className="w-24"
-              value={[volume]}
-              max={1}
-              step={0.01}
-              onValueChange={(value) => setVolume(value[0])}
-            />
-          </div>
-          <div className="ml-4 relative">
-            <Image
-              src={tracks[currentTrackIndex].album.images[0]?.url || '/placeholder.svg'}
-              alt={`${tracks[currentTrackIndex].name} album cover`}
-              width={80}
-              height={80}
-              className="rounded-md absolute -top-10 right-0 shadow-lg"
-            />
-          </div>
-        </div>
-      )}
+      <motion.div 
+        className="absolute bottom-4 right-4 w-24 h-24 sm:w-32 sm:h-32"
+        animate={{ 
+          rotate: 360,
+          scale: [1, 1.05, 1],
+        }}
+        transition={{ 
+          duration: 30, 
+          repeat: Infinity, 
+          ease: "linear",
+          scale: {
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }
+        }}
+      >
+        <div className="w-full h-full rounded-full bg-gradient-to-r from-[#1DB954] to-[#1ED760] opacity-20"></div>
+      </motion.div>
     </div>
   )
 }
