@@ -2,7 +2,7 @@ import React from 'react'
 
 const ProfilePage = () => {
   return (
-    <div>PMe O</div>
+    <div>PMe O2</div>
   )
 }
 
